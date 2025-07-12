@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Relógio e Contagem Regressiva</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+  
+    body {
+      font-family: Arial, sans-serif;
+      color: #fff;
+      height: 100vh;
+      overflow: hidden;
+      background-color: #000;
+      animation: fadein 1s ease forwards;
+    }
+  
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: linear-gradient(-45deg, #000, #080808, #111, #000, #080808);
+      background-size: 400% 400%;
+      animation: animarFundo 20s ease infinite;
+      z-index: -1;
+      opacity: 0.8;
+    }
+  
+    @keyframes animarFundo {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+  
+    @keyframes fadein {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
+  
+    .conteiner {
+      text-align: center;
+      max-width: 800px;
+      margin: auto;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+  
+    .relogio-pequeno {
+      font-size: clamp(1rem, 2.5vw, 1.5rem);
+      margin-bottom: clamp(0.5rem, 1.5vw, 0.8rem);
+      display: none;
+      opacity: 0.7;
+    }
+  
+    .data {
+      font-size: clamp(1rem, 4vw, 1.5rem);
+      margin-bottom: clamp(1rem, 2vw, 1.5rem);
+    }
+  
+    .relogio-grande {
+      position: relative;
+      font-size: clamp(3.5rem, 12vw, 8rem);
+      margin-bottom: clamp(1rem, 3vw, 1.5rem);
+      text-shadow: 0 0 2px #fff, 0 0 10px #fff, 0 0 20px #111;
+      animation: pulsarBrilho 2s infinite ease-in-out;
+    }
+  
+    @keyframes pulsarBrilho {
+      0% { text-shadow: 0 0 2px #fff, 0 0 10px #fff; }
+      50% { text-shadow: 0 0 5px #fff, 0 0 15px #aaa; }
+      100% { text-shadow: 0 0 2px #fff, 0 0 10px #fff; }
+    }
+  
+    .relogio-grande.alerta {
+      animation: alerta 0.5s alternate infinite, aura-alerta 1s infinite;
+    }
+  
+    @keyframes alerta {
+      from { color: #fff; }
+      to   { color: #ffdddd; }
+    }
+  
+    @keyframes aura-alerta {
+      0% {
+        text-shadow: 0 0 2px rgb(255, 255, 255), 0 0 4px rgb(255, 255, 255);
+        color: #ffffff;
+      }
+      50% {
+        text-shadow: 0 0 4px rgb(255, 255, 255), 0 0 8px rgb(255, 255, 255);
+        color: #ffffff;
+      }
+      100% {
+        text-shadow: 0 0 2px rgb(255, 255, 255), 0 0 4px rgb(255, 255, 255);
+        color: #fff;
+      }
+    }
+  
+    .controles {
+      margin-top: clamp(1.5rem, 4vw, 2rem);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s, transform 0.3s;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: clamp(0.5rem, 2vw, 1rem);
+      transform: translateY(10px);
+    }
+  
+    .conteiner:hover .controles {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateY(0);
+    }
+  
+    .controles input,
+    .controles button {
+      padding: clamp(0.5rem, 2vw, 0.8rem) clamp(1rem, 3vw, 1.5rem);
+      font-size: clamp(1rem, 2.5vw, 1.2rem);
+      border: 1px solid #333;
+      background: #111;
+      color: #fff;
+      cursor: pointer;
+      transition: background 0.3s, border-color 0.3s;
+    }
+  
+    .controles input:focus,
+    .controles button:hover:not(:disabled) {
+      border-color: #555;
+      background: #222;
+    }
+  
+    .controles button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  </style>
+  
+</head>
+<body>
+  <div class="conteiner">
+    <div class="relogio-pequeno" id="relogio-pequeno">00:00:00</div>
+    <div class="relogio-grande" id="relogio-grande">00:00:00</div>
+    <div class="data" id="data">--/--/----</div>
+    
+    <div class="controles">
+      <input type="time" id="hora-alvo" aria-label="Hora alvo" title="Hora alvo" />
+      <button id="botao-iniciar" aria-label="Iniciar contagem regressiva">Iniciar</button>
+      <button id="botao-pausar" aria-label="Pausar ou retomar contagem regressiva" disabled>Pausar</button>
+      <button id="botao-resetar" aria-label="Resetar contagem regressiva" disabled>Resetar</button>
+    </div>
+
+    <audio id="som-alarme" src="file:///usr/share/sounds/linuxmint-login.wav" preload="auto"></audio>
+  </div>
+
+  <script>
+    const dataElemento = document.getElementById('data');
+    const relogioGrandeElemento = document.getElementById('relogio-grande');
+    const relogioPequenoElemento = document.getElementById('relogio-pequeno');
+    const inputHoraAlvo = document.getElementById('hora-alvo');
+    const botaoIniciar = document.getElementById('botao-iniciar');
+    const botaoPausar = document.getElementById('botao-pausar');
+    const botaoResetar = document.getElementById('botao-resetar');
+    const somAlarme = document.getElementById('som-alarme');
+
+    let modoContagemRegressiva = false;
+    let intervaloContagem;
+    let intervaloRelogio;
+    let tempoRestante = 0;
+    let pausado = false;
+    let somJaTocou = false;
+
+    function atualizarData() {
+      const hoje = new Date();
+      dataElemento.textContent = `${String(hoje.getDate()).padStart(2,'0')}/${String(hoje.getMonth()+1).padStart(2,'0')}/${hoje.getFullYear()}`;
+    }
+
+    function atualizarHoraNormal() {
+      const agora = new Date();
+      const textoHora = `${String(agora.getHours()).padStart(2,'0')}:${String(agora.getMinutes()).padStart(2,'0')}:${String(agora.getSeconds()).padStart(2,'0')}`;
+      if (!modoContagemRegressiva) {
+        relogioGrandeElemento.textContent = textoHora;
+      }
+      relogioPequenoElemento.textContent = textoHora;
+    }
+
+    function iniciarContagemRegressiva() {
+      const valor = inputHoraAlvo.value;
+      if (!valor) {
+        alert('Defina uma hora alvo.');
+        return;
+      }
+      const [hora, minuto] = valor.split(':').map(Number);
+      const agora = new Date();
+      let alvo = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate(), hora, minuto, 0);
+      if (alvo <= agora) alvo.setDate(alvo.getDate() + 1);
+      tempoRestante = Math.floor((alvo - agora) / 1000);
+
+      modoContagemRegressiva = true;
+      relogioPequenoElemento.style.display = 'block';
+      botaoIniciar.disabled = true;
+      botaoPausar.disabled = false;
+      botaoResetar.disabled = false;
+      relogioGrandeElemento.classList.remove('alerta');
+      somJaTocou = false;
+
+      clearInterval(intervaloContagem);
+      intervaloContagem = setInterval(() => {
+        if (!pausado) {
+          if (tempoRestante <= 0) {
+            clearInterval(intervaloContagem);
+            relogioGrandeElemento.textContent = '00:00:00';
+            relogioGrandeElemento.classList.add('alerta');
+            if (!somJaTocou) {
+              somAlarme.play();
+              somJaTocou = true;
+            }
+            return;
+          }
+          const horasRest = Math.floor(tempoRestante / 3600);
+          const minutosRest = Math.floor((tempoRestante % 3600) / 60);
+          const segundosRest = tempoRestante % 60;
+          relogioGrandeElemento.textContent = `${String(horasRest).padStart(2,'0')}:${String(minutosRest).padStart(2,'0')}:${String(segundosRest).padStart(2,'0')}`;
+          tempoRestante--;
+        }
+      }, 1000);
+    }
+
+    botaoIniciar.addEventListener('click', iniciarContagemRegressiva);
+    botaoPausar.addEventListener('click', () => {
+      pausado = !pausado;
+      botaoPausar.textContent = pausado ? 'Retomar' : 'Pausar';
+    });
+    botaoResetar.addEventListener('click', () => {
+      clearInterval(intervaloContagem);
+      modoContagemRegressiva = false;
+      pausado = false;
+      relogioPequenoElemento.style.display = 'none';
+      botaoIniciar.disabled = false;
+      botaoPausar.disabled = true;
+      botaoResetar.disabled = true;
+      botaoPausar.textContent = 'Pausar';
+      relogioGrandeElemento.classList.remove('alerta');
+    });
+
+    atualizarData();
+    intervaloRelogio = setInterval(atualizarHoraNormal, 1000);
+  </script>
+</body>
+</html>
